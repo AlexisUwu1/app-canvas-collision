@@ -9,6 +9,7 @@ canvas.height = window_height;
 canvas.width = window_width;
 canvas.style.background = "#ff8";
 
+// Clase Circle
 class Circle {
   constructor(x, y, radius, color, text, speed) {
     this.posX = x;
@@ -19,8 +20,9 @@ class Circle {
     this.text = text;
     this.speed = speed;
     this.dx = (Math.random() < 0.5 ? -1 : 1) * this.speed; // Dirección aleatoria en X
-    this.dy = (Math.random() < 0.5 ? -1 : 1) * this.speed; // Dirección aleatoria en Y
+    this.dy = -Math.abs(this.speed); // Siempre hacia arriba
     this.inCollision = false; // Para manejar el flasheo del color
+    this.hasHitBottom = false; // Bandera para detectar si tocó el fondo
   }
 
   draw(context) {
@@ -37,15 +39,29 @@ class Circle {
 
   update(context) {
     this.draw(context);
+
     // Actualizar la posición X
     this.posX += this.dx;
     if (this.posX + this.radius > window_width || this.posX - this.radius < 0) {
       this.dx = -this.dx;
     }
+
     // Actualizar la posición Y
-    this.posY += this.dy;
-    if (this.posY + this.radius > window_height || this.posY - this.radius < 0) {
-      this.dy = -this.dy;
+    if (!this.hasHitBottom) {
+      this.posY += this.dy;
+      if (this.posY - this.radius < 0) {
+        this.dy = -this.dy; // Rebotar hacia abajo al tocar el borde superior
+      }
+
+      // Detectar si el círculo ha tocado el fondo del canvas
+      if (this.posY + this.radius >= window_height) {
+        this.dy = -this.dy * 0.8; // Rebote y reducir velocidad
+        this.posY = window_height - this.radius; // Asegurarse de que no pase el borde
+        if (Math.abs(this.dy) < 0.5) {
+          this.dy = 0; // Detener el rebote si es lo suficientemente lento
+          this.hasHitBottom = true; // Bloquear el círculo en el fondo
+        }
+      }
     }
   }
 
@@ -60,11 +76,11 @@ class Circle {
       if (!this.inCollision) {
         this.inCollision = true;
         otherCircle.inCollision = true;
-        
+
         // Cambiar a azul durante la colisión
         this.color = "#0000FF";
         otherCircle.color = "#0000FF";
-        
+
         // Invertir las direcciones (rebote)
         this.dx = -this.dx;
         this.dy = -this.dy;
@@ -81,21 +97,37 @@ class Circle {
       }
     }
   }
+
+  // Función para verificar si el clic del mouse está dentro del círculo
+  isClicked(mouseX, mouseY) {
+    const distX = this.posX - mouseX;
+    const distY = this.posY - mouseY;
+    const distance = Math.sqrt(distX * distX + distY * distY); // Distancia entre el círculo y el clic
+    return distance < this.radius; // Devuelve true si el clic está dentro del círculo
+  }
 }
 
 // Crear un array para almacenar N círculos
 let circles = [];
 
-// Función para generar círculos aleatorios
+// Función para generar un círculo aleatorio que aparezca por debajo del canvas
+function generateCircle(index) {
+  let radius = Math.random() * 30 + 20; // Radio entre 20 y 50
+  let x = Math.random() * (window_width - radius * 2) + radius; // Posición X aleatoria
+  let y = window_height + radius; // Comienzan desde debajo del canvas
+  let color = `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Color aleatorio
+  let speed = Math.random() * 4 + 1; // Velocidad entre 1 y 5
+  let text = `C${index + 1}`; // Etiqueta del círculo
+  circles.push(new Circle(x, y, radius, color, text, speed));
+}
+
+// Función para generar todos los círculos uno por uno
 function generateCircles(n) {
   for (let i = 0; i < n; i++) {
-    let radius = Math.random() * 30 + 20; // Radio entre 20 y 50
-    let x = Math.random() * (window_width - radius * 2) + radius;
-    let y = Math.random() * (window_height - radius * 2) + radius;
-    let color = `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Color aleatorio
-    let speed = Math.random() * 4 + 1; // Velocidad entre 1 y 5
-    let text = `C${i + 1}`; // Etiqueta del círculo
-    circles.push(new Circle(x, y, radius, color, text, speed));
+    // Usamos setTimeout para generar los círculos con un pequeño retraso
+    setTimeout(() => {
+      generateCircle(i); // Genera el círculo individualmente
+    }, i * 500); // El tiempo entre la aparición de cada círculo (0.5 segundos entre cada uno)
   }
 }
 
@@ -108,6 +140,15 @@ function detectCollisions() {
   }
 }
 
+// Función para eliminar un círculo cuando se hace clic sobre él
+canvas.addEventListener("click", function (event) {
+  const mouseX = event.clientX;
+  const mouseY = event.clientY;
+
+  // Filtrar los círculos que no han sido clicados
+  circles = circles.filter(circle => !circle.isClicked(mouseX, mouseY));
+});
+
 // Función para animar los círculos
 function animate() {
   ctx.clearRect(0, 0, window_width, window_height); // Limpiar el canvas
@@ -118,6 +159,6 @@ function animate() {
   requestAnimationFrame(animate); // Repetir la animación
 }
 
-// Generar N círculos y comenzar la animación
+// Generar N círculos de manera progresiva y comenzar la animación
 generateCircles(10); // Puedes cambiar el número de círculos aquí
 animate();
